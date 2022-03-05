@@ -39,6 +39,8 @@ ETimes.  Exp12  ::= Exp12 "*"  Exp13 ;
 EDiv.    Exp12  ::= Exp12 "/"  Exp13 ;
 EPlus.   Exp11  ::= Exp11 "+"  Exp12 ;
 EMinus.  Exp11  ::= Exp11 "-"  Exp12 ;
+EShftL.  Exp10  ::= Exp10 "<<" Exp11 ;
+EShftR.  Exp10  ::= Exp10 ">>" Exp11 ;
 ELt.     Exp9   ::= Exp9  "<"  Exp10 ;
 EGt.     Exp9   ::= Exp9  ">"  Exp10 ;
 ELtEq.   Exp9   ::= Exp9  "<=" Exp10 ;
@@ -48,13 +50,14 @@ ENEq.    Exp8   ::= Exp8  "!=" Exp9 ;
 EAnd.    Exp4   ::= Exp4  "&&" Exp5 ;
 EOr.     Exp3   ::= Exp3  "||" Exp4 ;
 EAss.    Exp2   ::= Exp3 "=" Exp2 ;
-Etype.  Exp1  ::= Exp1 "<<" [Exp];
+Etype.   Exp1   ::= Exp1 "<<" [Exp];
 
 internal ETyped. Exp15 ::= "(" Exp ":" Type ")" ;
 
 coercions Exp 15 ;
 
 separator Exp "," ;
+separator nonempty String "";
 
 rules Type   ::= "bool" | "int" | "double" | "void" | "string" ;
 
