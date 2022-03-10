@@ -2,6 +2,10 @@ PDefs.   Program ::= [Def] ;
 
 DFun.    Def    ::= Type Id "(" [Arg] ")" "{" [Stm] "}" ;
 
+DUsing. Def ::= "using" QConst ";" ; -- med.cc, told to add
+DDecl. Def ::= Type [Id] ; -- used for greet.cc
+DTypedef. Def ::= "typedef" Type Id ";" ; -- ^ same as above
+
 terminator Def "" ;
 
 ADecl.   Arg    ::= Type Id ;
@@ -16,8 +20,19 @@ SReturnVoid. Stm ::= "return" ";" ;
 SWhile.      Stm ::= "while" "(" Exp ")" Stm ;
 SBlock.      Stm ::= "{" [Stm] "}" ;
 SIfElse.     Stm ::= "if" "(" Exp ")" Stm "else" Stm ;
+SIf.         Stm ::= "if" "(" Exp ")" Stm ; -- single condition if statement
+STypeDef.    Stm ::= "typedef" Type Id ; --
 
 terminator Stm "" ;
+
+ELit.    Exp16 ::= [String] ;
+
+EQConst. Exp15 ::= QConst ;
+QConstName. QConst ::= Name ;
+QConstList. QConst ::= QConst "::" Name ;
+EIndex.  Exp15 ::= Id "[" Exp "]" ;
+NameTempId. Name ::= Id "<" Type ">" ; -- Tmp variable for name -> Id conversion
+NameId. Name ::= Id ; -- Convert name to ID
 
 ETrue.   Exp15  ::= "true" ;
 EFalse.  Exp15  ::= "false" ;
@@ -28,15 +43,17 @@ EId.     Exp15  ::= Id ;
 
 EApp.    Exp15  ::= Id "(" [Exp] ")" ;
 
+EProject. Exp14 ::= Exp15 "." Exp14 ;
 EPIncr.  Exp14  ::= Exp15 "++" ;
 EPDecr.  Exp14  ::= Exp15 "--" ;
 
 EIncr.   Exp13  ::= "++" Exp14 ;
 EDecr.   Exp13  ::= "--" Exp14 ;
-ECons.   Exp12 ::= Exp12 "::" Exp12;
+--ECons.   Exp12 ::= Exp12 "::" Exp12;
 
 ETimes.  Exp12  ::= Exp12 "*"  Exp13 ;
 EDiv.    Exp12  ::= Exp12 "/"  Exp13 ;
+EMod.    Exp12  ::= Exp12 "%"  Exp13 ; -- med.cc median calculation needs this
 EPlus.   Exp11  ::= Exp11 "+"  Exp12 ;
 EMinus.  Exp11  ::= Exp11 "-"  Exp12 ;
 EShftL.  Exp10  ::= Exp10 "<<" Exp11 ;
@@ -50,16 +67,24 @@ ENEq.    Exp8   ::= Exp8  "!=" Exp9 ;
 EAnd.    Exp4   ::= Exp4  "&&" Exp5 ;
 EOr.     Exp3   ::= Exp3  "||" Exp4 ;
 EAss.    Exp2   ::= Exp3 "=" Exp2 ;
+ETernary.Exp2   ::= Exp2 "?" Exp2 ":" Exp2 ; -- med.cc operation for catch
 Etype.   Exp1   ::= Exp1 "<<" [Exp];
 
 internal ETyped. Exp15 ::= "(" Exp ":" Type ")" ;
 
-coercions Exp 15 ;
+coercions Exp 16 ;
+
+TypeQConst. Type ::= QConst ; -- qualified Const.
+TypePostModifier. Type ::= Type PostModifier ;
+TypePreModifier. Type ::= PreModifier Type ;
+
 
 separator Exp "," ;
 separator nonempty String "";
 
 rules Type   ::= "bool" | "int" | "double" | "void" | "string" ;
+rules PostModifier ::= "&" | "*" ;
+rules PreModifier ::= "const" ;
 
 token Id (letter (letter | digit | '_')*) ;
 
