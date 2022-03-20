@@ -21,7 +21,7 @@ SWhile.      Stm ::= "while" "(" Exp ")" Stm ;
 SBlock.      Stm ::= "{" [Stm] "}" ;
 SIfElse.     Stm ::= "if" "(" Exp ")" Stm "else" Stm ;
 SIf.         Stm ::= "if" "(" Exp ")" Stm ; -- single condition if statement
-STypeDef.    Stm ::= "typedef" Type Id ; --
+STypeDef.    Stm ::= "typedef" Type Id ";" ; -- defining typedef to be used in a declaration
 
 terminator Stm "" ;
 
@@ -30,7 +30,7 @@ ELit.    Exp16 ::= [String] ;
 EQConst. Exp15 ::= QConst ;
 QConstName. QConst ::= Name ;
 QConstList. QConst ::= QConst "::" Name ;
-EIndex.  Exp15 ::= Id "[" Exp "]" ;
+EIndex.  Exp15 ::= Id "[" Exp "]" ; --indexing within an expression can now be used
 NameTempId. Name ::= Id "<" Type ">" ; -- Tmp variable for name -> Id conversion
 NameId. Name ::= Id ; -- Convert name to ID
 
@@ -43,21 +43,20 @@ EId.     Exp15  ::= Id ;
 
 EApp.    Exp15  ::= Id "(" [Exp] ")" ;
 
-EProject. Exp14 ::= Exp15 "." Exp14 ;
+EProject. Exp14 ::= Exp15 "." Exp14 ; --projection helps with grammar structure
 EPIncr.  Exp14  ::= Exp15 "++" ;
 EPDecr.  Exp14  ::= Exp15 "--" ;
 
 EIncr.   Exp13  ::= "++" Exp14 ;
 EDecr.   Exp13  ::= "--" Exp14 ;
---ECons.   Exp12 ::= Exp12 "::" Exp12;
 
 ETimes.  Exp12  ::= Exp12 "*"  Exp13 ;
 EDiv.    Exp12  ::= Exp12 "/"  Exp13 ;
 EMod.    Exp12  ::= Exp12 "%"  Exp13 ; -- med.cc median calculation needs this
 EPlus.   Exp11  ::= Exp11 "+"  Exp12 ;
 EMinus.  Exp11  ::= Exp11 "-"  Exp12 ;
-EShftL.  Exp10  ::= Exp10 "<<" Exp11 ;
-EShftR.  Exp10  ::= Exp10 ">>" Exp11 ;
+EShftL.  Exp10  ::= Exp10 "<<" Exp11 ; -- hello.cc file requires a left shift
+EShftR.  Exp10  ::= Exp10 ">>" Exp11 ; -- the counteractive right shift is also helpful
 ELt.     Exp9   ::= Exp9  "<"  Exp10 ;
 EGt.     Exp9   ::= Exp9  ">"  Exp10 ;
 ELtEq.   Exp9   ::= Exp9  "<=" Exp10 ;
@@ -68,23 +67,23 @@ EAnd.    Exp4   ::= Exp4  "&&" Exp5 ;
 EOr.     Exp3   ::= Exp3  "||" Exp4 ;
 EAss.    Exp2   ::= Exp3 "=" Exp2 ;
 ETernary.Exp2   ::= Exp2 "?" Exp2 ":" Exp2 ; -- med.cc operation for catch
-Etype.   Exp1   ::= Exp1 "<<" [Exp];
+EThrow.  Exp1   ::= "throw" Id "(" Exp ")" ; -- removed ECons. due to Parsing failures and exploring the error that was thrown
 
 internal ETyped. Exp15 ::= "(" Exp ":" Type ")" ;
 
 coercions Exp 16 ;
 
 TypeQConst. Type ::= QConst ; -- qualified Const.
-TypePostModifier. Type ::= Type PostModifier ;
-TypePreModifier. Type ::= PreModifier Type ;
+TypePreModifier. Type ::= PreModifier Type ; --swapped order of post and pre, fixed compiling issue
+TypePostModifier. Type ::= Type PostModifier ; --post modifier comes after the pre
 
 
 separator Exp "," ;
-separator nonempty String "";
+separator nonempty String ""; -- moved line up so it is not last to be read by compilier
 
-rules Type   ::= "bool" | "int" | "double" | "void" | "string" ;
-rules PostModifier ::= "&" | "*" ;
-rules PreModifier ::= "const" ;
+rules Type   ::= "bool" | "int" | "double" | "void" ; -- removed "string" and fixed Parse fail throw
+rules PreModifier ::= "const" ; -- reworked where pre/post modifier ordering, pre is now beforehand
+rules PostModifier ::= "&" | "*" ; -- post now sits lower and is in its correct order
 
 token Id (letter (letter | digit | '_')*) ;
 
