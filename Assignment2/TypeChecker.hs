@@ -14,12 +14,12 @@ import Control.Monad ( foldM, foldM_, forM_, unless )
 
 newtype Alternative a = Alternative [a]
 instance Print a => Print (Alternative a) where
-    prt i (Alternative xs) = 
+    prt i (Alternative xs) =
         ((foldr (.) id) . (intersperse (doc (showString "/"))) . map (prt i)) xs
 
 
 typeMismatchError :: (Print e, Print t1, Print t2) => e -> t1 -> t2 -> String
-typeMismatchError e tExp tFound = 
+typeMismatchError e tExp tFound =
     "TYPE ERROR\n\n" ++
     "Expected " ++ printTree e ++ " to have type " ++ printTree tExp ++
     " instead found type " ++ printTree tFound ++ "."
@@ -44,8 +44,8 @@ lookupFun (sig,_) id = case M.lookup id sig of
 insertFun :: Env -> Id -> FunctionType -> Err Env
 insertFun (sig,ctxt) i t = do
     case M.lookup i sig of
-        Just _  -> fail $ 
-            "TYPE ERROR\n\nFailed to add " 
+        Just _  -> fail $
+            "TYPE ERROR\n\nFailed to add "
             ++ printTree i ++ "to the symbol table, as it is already defined"
         Nothing -> return (M.insert i t sig, ctxt)
 
@@ -59,12 +59,12 @@ lookupVar i (sig,c:ctxt) = case M.lookup i c of
 
 insertVar :: Env -> Id -> Type -> Err Env
 insertVar (_, []) _ _ = fail $ "Internal error, this should not happen."
-insertVar (sig, c:ctxt) i t = 
+insertVar (sig, c:ctxt) i t =
     case M.lookup i c of
-        Just _  -> fail $ 
-            "TYPE ERROR\n\nFailed to add " 
+        Just _  -> fail $
+            "TYPE ERROR\n\nFailed to add "
             ++ printTree i ++ "to the context, as it is already defined within this block."
-        Nothing -> 
+        Nothing ->
             if t == Type_void then
                 fail $ "TYPE ERROR\n\nCannot declare variable " ++ printTree i ++ " as void."
             else
@@ -76,8 +76,8 @@ newBlock (sig,ctxt) = (sig, M.empty:ctxt)
 
 
 emptyEnv :: Env
-emptyEnv = (M.fromList 
-    [ 
+emptyEnv = (M.fromList
+    [
         (Id "printInt",    ([Type_int],    Type_void))
       , (Id "printDouble", ([Type_double], Type_void))
       , (Id "readInt",     ([],            Type_int))
@@ -89,7 +89,7 @@ buildEnv :: [Def] -> Err Env
 buildEnv [] = return emptyEnv
 buildEnv (DFun t i arg _:xs) = do
     env <- buildEnv xs
-    insertFun env i (map (\(ADecl t _) -> t) arg, t) 
+    insertFun env i (map (\(ADecl t _) -> t) arg, t)
 
 
 typecheck :: Program -> Err ()
@@ -111,7 +111,7 @@ checkMain Type_int [] = ok
 checkMain Type_int xs = fail $ "TYPE ERROR\n\nError, main cannot have arguments."
 checkMain ty _ = fail $ typeMismatchError (Id "main") Type_int ty
 
-{- 
+{-
 In env' <- checkStm env stm ty we have
     env: the current environment
     stm: the stm to be checked for validity
@@ -119,7 +119,7 @@ In env' <- checkStm env stm ty we have
     env': the updated environment (stm may be variable declaration)
           or an error message (if stm is not valid)
 -}
-checkStm :: Env -> Stm -> Type -> Err Env 
+checkStm :: Env -> Stm -> Type -> Err Env
 checkStm env (SExp e) ty = do
     inferTypeExp env e
     return env
@@ -128,9 +128,13 @@ checkStm env (SDecls ty' ids) ty =
 checkStm env (SReturn e) ty = do
     checkExp env e ty
     return env
-
--- checkStm env (SInit ty' i e) ty = do
-    -- similar to SDecls, but not need for foldM
+checkStm env (SInit ty' i e) ty = do
+    env' <- insertVar env i ty'
+    ty1 <- inferTypeExp env' e
+    if ty1 == ty
+        then return env'
+    else
+        fail $ typeMismatchError e ty ty1
 
 -- checkStm env SReturnVoid Type_void =
 -- the next case is only executed in case ty is not Type_void
@@ -147,45 +151,52 @@ checkStm env (SReturn e) ty = do
 -- checkStm env (SIfElse e stm1 stm2) ty = do
     -- use newBlock in both branches
 
-{-   
+{-
 Once you have all cases you can delete the next line which is only needed to catch all cases that are not yet implemented.
 -}
 checkStm _ s _ = fail $ "Missing case in checkStm encountered:\n" ++ printTree s
 
 
-{- 
+{-
 In ty <- inferTypExp env e we have
     env: the current environment
-    e: the expression 
+    e: the expression
     ty: the type of e
         or an error message (if we cannot assign a type to e)
 -}
 inferTypeExp :: Env -> Exp -> Err Type
 inferTypeExp env (EInt _) = return Type_int
--- inferTypeExp env (EDouble _) = 
--- inferTypeExp env (EString _) = 
--- inferTypeExp env (EId i) = 
-    -- use lookupVar 
+-- inferTypeExp env (EDouble _) =
+-- inferTypeExp env (EString _) =
+inferTypeExp env (EId i) = do
+    ty <- lookupVar i env
+    return ty
 -- inferTypeExp env (EApp i exps) = do
     -- use lookupFun
     -- use forM_ to iterate checkExp over exps
--- inferTypeExp env (EPIncr e) = 
-    -- use inferTypeOverloadedExp 
--- inferTypeExp env (EPDecr e) = 
--- inferTypeExp env (EIncr e) = 
--- inferTypeExp env (EDecr e) = 
--- inferTypeExp env (ETimes e1 e2) = 
--- inferTypeExp env (EDiv e1 e2) = 
--- inferTypeExp env (EPlus e1 e2) = 
--- inferTypeExp env (EMinus e1 e2) = 
+-- inferTypeExp env (EPIncr e) =
+    -- use inferTypeOverloadedExp
+-- inferTypeExp env (EPDecr e) =
+-- inferTypeExp env (EIncr e) =
+-- inferTypeExp env (EDecr e) =
+-- inferTypeExp env (ETimes e1 e2) =
+-- inferTypeExp env (EDiv e1 e2) =
+inferTypeExp env (EPlus e1 e2) = do
+    t1 <- inferTypeExp env e1
+    t2 <- inferTypeExp env e2
+    if t1 == Type_int && t1 == Type_int then
+        return Type_int
+    else
+        fail $ typeMismatchError (EPlus e1 e2) Type_int Type_int
+-- inferTypeExp env (EMinus e1 e2) =
 -- inferTypeExp env (ELt e1 e2) = do
--- inferTypeExp env (EGt e1 e2) = 
--- inferTypeExp env (ELtEq e1 e2) = 
--- inferTypeExp env (EGtEq e1 e2) = 
+-- inferTypeExp env (EGt e1 e2) =
+-- inferTypeExp env (ELtEq e1 e2) =
+-- inferTypeExp env (EGtEq e1 e2) =
 -- inferTypeExp env (EEq e1 e2) = do
--- inferTypeExp env (ENEq e1 e2) = 
+-- inferTypeExp env (ENEq e1 e2) =
 -- inferTypeExp env (EAnd e1 e2) = do
--- inferTypeExp env (EOr e1 e2) = 
+-- inferTypeExp env (EOr e1 e2) =
 
 inferTypeExp env (EAss e1 e2) = do
     ty <- inferTypeExp env e1
@@ -196,7 +207,7 @@ inferTypeExp env (ETyped e ty) = do
     return ty
 
 
-    
+
 {-
 Once you have all cases you can delete the next line which is only needed to catch all cases that are not yet implemented.
 -}
@@ -206,7 +217,7 @@ inferTypeExp _ e = fail $ "Missing case in inferTypeExp encountered:\n" ++ print
 inferTypeOverloadedExp :: Env -> Alternative Type -> Exp -> [Exp] -> Err Type
 inferTypeOverloadedExp env (Alternative ts) e es = do
     ty <- inferTypeExp env e
-    unless (ty `elem` ts) $ 
+    unless (ty `elem` ts) $
         fail $ typeMismatchError e (Alternative ts) ty
     forM_ es (flip (checkExp env) ty)
     return ty
@@ -215,5 +226,5 @@ inferTypeOverloadedExp env (Alternative ts) e es = do
 checkExp :: Env -> Exp -> Type -> Err ()
 checkExp env e ty = do
     ty' <- inferTypeExp env e
-    unless (ty == ty') $ 
+    unless (ty == ty') $
         fail $ typeMismatchError e ty ty'
