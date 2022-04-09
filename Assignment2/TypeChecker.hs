@@ -136,7 +136,7 @@ checkStm env (SInit ty' i e) ty = do
     else
         fail $ typeMismatchError e ty ty1
 
--- checkStm env SReturnVoid Type_void =
+--checkStm env SReturnVoid Type_void =
 -- the next case is only executed in case ty is not Type_void
 -- checkStm env SReturnVoid ty = do
     -- return a typeMismatchError
@@ -205,9 +205,10 @@ inferTypeExp env (EMinus e1 e2) = do
         return Type_int
     else
         fail $ typeMismatchError (EMinus e1 e2) Type_int Type_double
--- inferTypeExp env (ELt e1 e2) = do
-    --if ()
--- inferTypeExp env (EGt e1 e2) =
+inferTypeExp env (ELt e1 e2) = do
+    inferTypeOverloadedExp env (Alternative [Type_int, Type_double, Type_bool]) e1 [e2]
+inferTypeExp env (EGt e1 e2) =
+    inferTypeOverloadedExp env (Alternative [Type_int, Type_double, Type_bool]) e1 [e2]
 inferTypeExp env (ELtEq e1 e2) = do
     ty <- inferTypeExp env e1
     checkExp env e2 ty
@@ -220,9 +221,18 @@ inferTypeExp env (EEq e1 e2) = do
     ty <- inferTypeExp env e1
     checkExp env e2 ty
     return Type_bool
--- inferTypeExp env (ENEq e1 e2) =
--- inferTypeExp env (EAnd e1 e2) = do
--- inferTypeExp env (EOr e1 e2) =
+inferTypeExp env (ENEq e1 e2) = do
+    ty <- inferTypeExp env e1
+    checkExp env e2 ty
+    return Type_bool
+inferTypeExp env (EAnd e1 e2) = do
+    ty <- inferTypeExp env e1
+    checkExp env e2 ty
+    return Type_bool
+inferTypeExp env (EOr e1 e2) = do
+    ty <- inferTypeExp env e1
+    checkExp env e2 ty
+    return Type_bool
 
 inferTypeExp env (EAss e1 e2) = do
     ty <- inferTypeExp env e1
