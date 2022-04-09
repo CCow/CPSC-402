@@ -166,21 +166,31 @@ In ty <- inferTypExp env e we have
 -}
 inferTypeExp :: Env -> Exp -> Err Type
 inferTypeExp env (EInt _) = return Type_int
--- inferTypeExp env (EDouble _) =
--- inferTypeExp env (EString _) =
+inferTypeExp env (EDouble _) = return Type_double
+inferTypeExp env (EString _) = return Type_string
 inferTypeExp env (EId i) = do
     ty <- lookupVar i env
     return ty
--- inferTypeExp env (EApp i exps) = do
-    -- use lookupFun
-    -- use forM_ to iterate checkExp over exps
--- inferTypeExp env (EPIncr e) =
-    -- use inferTypeOverloadedExp
--- inferTypeExp env (EPDecr e) =
--- inferTypeExp env (EIncr e) =
--- inferTypeExp env (EDecr e) =
--- inferTypeExp env (ETimes e1 e2) =
--- inferTypeExp env (EDiv e1 e2) =
+inferTypeExp env (ETrue) = return Type_bool
+inferTypeExp env (EFalse) = return Type_bool
+
+inferTypeExp env (EApp i exps) = do
+    funcSig <- lookupFun env i
+    if(length(fst funcSig) /= (length exps)) then fail "Error, number of parameters"
+    else do forM_ (zip exps(fst funcSig)) (\p -> checkExp env (fst p) (snd p))
+    return (snd funcSig)
+inferTypeExp env (EPIncr e) =
+    inferTypeOverloadedExp env (Alternative [Type_int, Type_double]) e []
+inferTypeExp env (EPDecr e) =
+    inferTypeOverloadedExp env (Alternative [Type_int, Type_double]) e []
+inferTypeExp env (EIncr e) =
+    inferTypeOverloadedExp env (Alternative [Type_int, Type_double]) e []
+inferTypeExp env (EDecr e) =
+    inferTypeOverloadedExp env (Alternative [Type_int, Type_double]) e []
+inferTypeExp env (ETimes e1 e2) =
+    inferTypeOverloadedExp env (Alternative [Type_int, Type_double]) e1 [e2]
+inferTypeExp env (EDiv e1 e2) =
+    inferTypeOverloadedExp env (Alternative [Type_int, Type_double]) e1 [e2]
 inferTypeExp env (EPlus e1 e2) = do
     t1 <- inferTypeExp env e1
     t2 <- inferTypeExp env e2
@@ -188,12 +198,28 @@ inferTypeExp env (EPlus e1 e2) = do
         return Type_int
     else
         fail $ typeMismatchError (EPlus e1 e2) Type_int Type_int
--- inferTypeExp env (EMinus e1 e2) =
+inferTypeExp env (EMinus e1 e2) = do
+    t1 <- inferTypeExp env e1
+    t2 <- inferTypeExp env e2
+    if t1 == Type_int && t1 == Type_int then
+        return Type_int
+    else
+        fail $ typeMismatchError (EMinus e1 e2) Type_int Type_double
 -- inferTypeExp env (ELt e1 e2) = do
+    --if ()
 -- inferTypeExp env (EGt e1 e2) =
--- inferTypeExp env (ELtEq e1 e2) =
--- inferTypeExp env (EGtEq e1 e2) =
--- inferTypeExp env (EEq e1 e2) = do
+inferTypeExp env (ELtEq e1 e2) = do
+    ty <- inferTypeExp env e1
+    checkExp env e2 ty
+    return Type_bool
+inferTypeExp env (EGtEq e1 e2) = do
+    ty <- inferTypeExp env e1
+    checkExp env e2 ty
+    return Type_bool
+inferTypeExp env (EEq e1 e2) = do
+    ty <- inferTypeExp env e1
+    checkExp env e2 ty
+    return Type_bool
 -- inferTypeExp env (ENEq e1 e2) =
 -- inferTypeExp env (EAnd e1 e2) = do
 -- inferTypeExp env (EOr e1 e2) =
