@@ -54,23 +54,23 @@ data IIO = IIO {
 
 -- used for testing reading test/<filename>.inputs and comparing to test/<filename>.outputs
 instance Interpreter (StateT Env (StateT IIO Err)) where
-    printInt i = lift $ modify (\io@IIO{..} -> io{outputs = VInt i:outputs}) 
-    printDouble d = lift $ modify (\io@IIO{..} -> io{outputs = VDouble d:outputs}) 
+    printInt i = lift $ modify (\io@IIO{..} -> io{outputs = VInt i:outputs})
+    printDouble d = lift $ modify (\io@IIO{..} -> io{outputs = VDouble d:outputs})
     readInt = lift $ do
         IIO{..} <- get
         case inputs of
             (VInt i:_) -> do
-                modify (\io@IIO{..} -> io{inputs = tail inputs}) 
+                modify (\io@IIO{..} -> io{inputs = tail inputs})
                 return i
             _ -> fail $ "Invalid input given. expected an int."
     readDouble = lift $ do
         IIO{..} <- get
         case inputs of
             (VDouble d:_) -> do
-                modify (\io@IIO{..} -> io{inputs = tail inputs}) 
+                modify (\io@IIO{..} -> io{inputs = tail inputs})
                 return d
             (VInt i:_) -> do
-                modify (\io@IIO{..} -> io{inputs = tail inputs}) 
+                modify (\io@IIO{..} -> io{inputs = tail inputs})
                 return $ fromInteger i
             _ -> fail $ "Invalid input given. expected a double."
 
@@ -79,7 +79,7 @@ type Context = Map Id Value
 type Env = (Sig, [Context])
 
 emptyEnv :: Env
-emptyEnv = (M.empty, [M.empty]) 
+emptyEnv = (M.empty, [M.empty])
 
 extendSig :: Interpreter i => Def -> i ()
 extendSig def@(DFun _ i _ _) = modifyEnv $ \(sig,ctxt) -> (M.insert i def sig, ctxt)
@@ -111,7 +111,7 @@ lookupContext i = do
         [] -> fail $ "Error, could not find " ++ printTree i ++ "."
         c:txt -> case M.lookup i c of
             (Just f) -> return f
-            Nothing -> setEnv (sig,txt) >> lookupContext i >>= 
+            Nothing -> setEnv (sig,txt) >> lookupContext i >>=
                 \r -> setEnv env >> return r
 
 push :: Interpreter i => i ()
@@ -128,7 +128,7 @@ pushPop :: Interpreter i => i a -> i a
 pushPop f = do
     push
     v <- f
-    pop 
+    pop
     return v
 
 exec :: Interpreter i => Program -> i ()
@@ -139,7 +139,7 @@ exec (PDefs defs) = do
     evalStms stms
     return ()
 
--- Maybe Value: Use "Just" for SReturn, SReturnVoid, "Nothing" for the other cases. 
+-- Maybe Value: Use "Just" for SReturn, SReturnVoid, "Nothing" for the other cases.
 evalStms :: Interpreter i => [Stm] -> i (Maybe Value)
 evalStms [] = return Nothing
 evalStms (s:tms) = do
@@ -155,8 +155,8 @@ evalStm (SDecls _ ids) = do
     mapM (\i -> extendContext i VUndefined) ids
     return Nothing
 {-
-evalStm (SInit _ i e) = 
-evalStm SReturnVoid = 
+evalStm (SInit _ i e) =
+evalStm SReturnVoid =
 -}
 evalStm (SReturn e) = do
     v <- evalExp e
@@ -164,22 +164,22 @@ evalStm (SReturn e) = do
 
 evalStm (SBlock stms) = pushPop $ evalStms stms
 {-
-evalStm (SWhile e stm) = 
-evalStm (SIfElse e stm1 stm2) = 
+evalStm (SWhile e stm) =
+evalStm (SIfElse e stm1 stm2) =
 -}
-evalStm stm = 
+evalStm stm =
     fail $ "Missing case in evalStm " ++ printTree stm ++ "\n"
 
 evalExp :: Interpreter i => Exp -> i Value
 evalExp ETrue = return VTrue
 {-
-evalExp EFalse = 
+evalExp EFalse =
 -}
 evalExp (EInt i) = return $ VInt i
 {-
-evalExp (EDouble d) = 
-evalExp (EString _) = 
-evalExp (EId i) = 
+evalExp (EDouble d) =
+evalExp (EString _) =
+evalExp (EId i) =
 -}
 evalExp (EApp i exps) = do
     vals <- mapM evalExp exps
@@ -207,7 +207,7 @@ evalExp (EApp i exps) = do
                 evalStms stms
             case val of
                 Just v -> return v
-                Nothing -> 
+                Nothing ->
                     if ty == Type_void then
                         return VVoid
                     else
@@ -219,29 +219,29 @@ evalExp (EPIncr e@(EId i)) = do
     return val
 evalExp (EPIncr e) = fail $ "Expected " ++ printTree e ++ " to be an id."
 {-
-evalExp (EPDecr e@(EId i)) = 
-evalExp (EPDecr e) = 
-evalExp (EIncr e@(EId i)) = 
-evalExp (EIncr e) = 
-evalExp (EDecr e@(EId i)) = 
-evalExp (EDecr e) = 
+evalExp (EPDecr e@(EId i)) =
+evalExp (EPDecr e) =
+evalExp (EIncr e@(EId i)) =
+evalExp (EIncr e) =
+evalExp (EDecr e@(EId i)) =
+evalExp (EDecr e) =
 -}
 evalExp (ETimes e1 e2) = applyFun mulValue e1 e2
+evalExp (EDiv e1 e2)   = applyFun divValue e1 e2
+evalExp (EPlus e1 e2)  = applyFun addValue e1 e2
+evalExp (EMinus e1 e2) = applyFun subValue e1 e2
+evalExp (ELt e1 e2)    = applyFun ltValue e1 e2
+evalExp (EGt e1 e2)    = applyFun gtValue e1 e2
 {-
-evalExp (EDiv e1 e2)   = 
-evalExp (EPlus e1 e2)  = 
-evalExp (EMinus e1 e2) = 
-evalExp (ELt e1 e2)    = 
-evalExp (EGt e1 e2)    = 
-evalExp (ELtEq e1 e2)  = 
-evalExp (EGtEq e1 e2)  = 
+evalExp (ELtEq e1 e2)  =
+evalExp (EGtEq e1 e2)  =
 evalExp (EEq e1 e2)    =
 evalExp (ENEq e1 e2) =
-evalExp (EAnd e1 e2) = 
-evalExp (EOr e1 e2) = 
-evalExp (EAss (EId i) e) = 
-evalExp (EAss _ _) = 
-evalExp (ETyped e _) = 
+evalExp (EAnd e1 e2) =
+evalExp (EOr e1 e2) =
+evalExp (EAss (EId i) e) =
+evalExp (EAss _ _) =
+evalExp (ETyped e _) =
 -}
 evalExp e = fail $ "Missing case in evalExp." ++ printTree e ++ "\n"
 
