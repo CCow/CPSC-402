@@ -123,7 +123,7 @@ pop = modifyEnv' $ \(sig, ctxt) -> case ctxt of
         (c:txt) -> return (sig, txt)
 
 pushPop :: Interpreter i => i a -> i a
--- pushPop f = push >> f >>= \v -> pop >> return v
+pushPop f = push >> f >>= \a -> pop >> return a
 -- pushPop f = push >> ( f >>= ( \v -> (pop >> return v) ) )
 pushPop f = do
     push
@@ -154,10 +154,11 @@ evalStm (SExp e) = do
 evalStm (SDecls _ ids) = do
     mapM (\i -> extendContext i VUndefined) ids
     return Nothing
-{-
-evalStm (SInit _ i e) =
-evalStm SReturnVoid =
--}
+evalStm (SInit _ i e) = do
+    m <- evalExp e
+    extendContext i m
+    return Nothing
+evalStm SReturnVoid = return Nothing
 evalStm (SReturn e) = do
     v <- evalExp e
     return $ Just v
@@ -172,15 +173,13 @@ evalStm stm =
 
 evalExp :: Interpreter i => Exp -> i Value
 evalExp ETrue = return VTrue
-{-
-evalExp EFalse =
--}
+evalExp EFalse = return VFalse
 evalExp (EInt i) = return $ VInt i
-{-
-evalExp (EDouble d) =
-evalExp (EString _) =
-evalExp (EId i) =
--}
+evalExp (EDouble d) = return $ VDouble d
+evalExp (EString _) = return $ VUndefined
+evalExp (EId i) = do
+    ty <- lookupContext i
+    return ty
 evalExp (EApp i exps) = do
     vals <- mapM evalExp exps
     case (i, vals) of
@@ -218,14 +217,24 @@ evalExp (EPIncr e@(EId i)) = do
     updateContext i val'
     return val
 evalExp (EPIncr e) = fail $ "Expected " ++ printTree e ++ " to be an id."
-{-
-evalExp (EPDecr e@(EId i)) =
-evalExp (EPDecr e) =
-evalExp (EIncr e@(EId i)) =
-evalExp (EIncr e) =
-evalExp (EDecr e@(EId i)) =
-evalExp (EDecr e) =
--}
+evalExp (EPDecr e@(EId i)) = do
+    val <- evalExp e
+    val' <- subValue val (VInt 1)
+    updateContext i val'
+    return val
+evalExp (EPDecr e) = fail $ "Expected " ++ printTree e ++ " to be an id."
+evalExp (EIncr e@(EId i)) = do
+    val <- evalExp e
+    val' <- addValue val (VInt 1)
+    updateContext i val'
+    return val
+evalExp (EIncr e) = fail $ "Expected " ++ printTree e ++ " to be an id."
+evalExp (EDecr e@(EId i)) = do
+    val <- evalExp e
+    val' <- subValue val (VInt 1)
+    updateContext i val'
+    return val
+evalExp (EDecr e) = fail $ "Expected " ++ printTree e ++ " to be an id."
 evalExp (ETimes e1 e2) = applyFun mulValue e1 e2
 evalExp (EDiv e1 e2)   = applyFun divValue e1 e2
 evalExp (EPlus e1 e2)  = applyFun addValue e1 e2
