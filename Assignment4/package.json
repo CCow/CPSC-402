@@ -1,0 +1,11 @@
+{
+  "name": "as5",
+  "version": "1.0.0",
+  "description": "Compiler for C to WebAssembly",
+  "main": "run.js",
+  "author": "Samuel Balco",
+  "devDependencies": {
+    "scanf": "^1.1.1",
+    "wabt": "^1.0.13"
+  }
+}
