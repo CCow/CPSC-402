@@ -40,13 +40,13 @@ s_module xs = List (Atom "module":xs)
 s_block xs = List (Atom "block":xs)
 s_loop xs = List (Atom "loop":xs)
 
-s_br, s_br_if :: Int -> SExp 
+s_br, s_br_if :: Int -> SExp
 s_br l = List [Atom "br", Atom $ show l]
 s_br_if l = List [Atom "br_if", Atom $ show l]
 
 -- first put the condition on the stack, then use s_if_then_else
 s_if_then_else :: Maybe SExp -> [SExp] -> [SExp] -> SExp
-s_if_then_else ty then_case else_case = 
+s_if_then_else ty then_case else_case =
     List $ [Atom "if"] ++ s_result ty ++
         [List (Atom "then":then_case),
         List (Atom "else":else_case)]
@@ -56,25 +56,25 @@ s_return = Atom "return"
 s_result :: Maybe SExp -> [SExp]
 s_result ty = maybe [] (\t -> [List [Atom "result", t]]) ty
 
-s_import nm in_typ res_typ = 
+s_import nm in_typ res_typ =
     List ([
-        Atom "import", 
-        Atom "\"env\"" , 
+        Atom "import",
+        Atom "\"env\"" ,
         Atom ("\"" ++ nm ++ "\""),
         List (
             [Atom "func", s_var nm] ++
-            map (\(Just p) -> List [Atom "param", p]) in_typ ++ 
-            s_result res_typ)]) 
+            map (\(Just p) -> List [Atom "param", p]) in_typ ++
+            s_result res_typ)])
 
 s_export nm = List [Atom "export", Atom $ "\"" ++ nm ++ "\"", List [Atom "func", s_var nm] ]
 
 s_func :: String -> [(String, Maybe SExp)] -> Maybe SExp -> [SExp] -> SExp
-s_func nm in_typ res_typ body = 
+s_func nm in_typ res_typ body =
     List $ [
-        Atom "func", 
-        s_var nm] ++ 
-        map (\(n, Just t) -> List [Atom "param", s_var n, t]) in_typ ++ 
-        s_result res_typ ++ 
+        Atom "func",
+        s_var nm] ++
+        map (\(n, Just t) -> List [Atom "param", s_var n, t]) in_typ ++
+        s_result res_typ ++
         body
 
 s_local nm (Just ty) = List $ [Atom "local", s_var nm, ty]
@@ -120,7 +120,7 @@ s_f64_ne = Atom "f64.ne"
 pprint_aux :: SExp -> [String]
 pprint_aux (Atom s) = [s]
 pprint_aux (List []) = ["()"]
-pprint_aux (List (x:xs)) = 
+pprint_aux (List (x:xs)) =
     (possiblyMerge 100 (pprint_aux x) (concat $ map pprint_aux xs))
 
 concatHead :: String -> [String] -> [String]
@@ -132,10 +132,10 @@ concatTail s [] = [s]
 concatTail s [x] = [x++s]
 concatTail s (x:xs) = x:(concatTail s xs)
 
-possiblyMerge l x xs = concatHead "(" $ 
-    if length (concat (x++xs)) < l then 
-        concatTail ")" $ [intercalate " " (x++xs)] 
-    else 
+possiblyMerge l x xs = concatHead "(" $
+    if length (concat (x++xs)) < l then
+        concatTail ")" $ [intercalate " " (x++xs)]
+    else
         x ++ map (" "++) xs ++ [")"]
 
 pprint sexp = intercalate "\n" $ pprint_aux sexp
@@ -150,16 +150,16 @@ compile (PDefs defs) = pprint prog
                 s_import "readDouble" [] s_f64,
                 s_import "printInt" [s_i32] s_void,
                 s_import "printDouble" [s_f64] s_void
-            ] ++ flip evalState 
+            ] ++ flip evalState
                 (M.fromList $ [
                         (Id "readInt", (Type_int, -1)),
                         (Id "readDouble", (Type_double, -1)),
                         (Id "printInt", (Type_void, -1)),
                         (Id "printDouble", (Type_void, -1))
-                    ] 
+                    ]
               ++ map (\(DFun ty n _ _) -> (n, (ty, -1))) defs, 0) (mapM compileDef defs)
               ++ [s_export "main"]
-        
+
 -- example of an S-expressions written with the helper functions
 -- run `stack ghci` and `putStrLn $ pprint test`
 test = s_module [
@@ -196,8 +196,8 @@ compileDef (DFun ty (Id n) args stms) = do
     modify (\(m,c) -> (foldl (\m' (ADecl ty i) -> M.insert i (ty,c) m') m args, c))
     s_body <- compileStms stms
     modify (\_ -> (m,c)) -- restore the Env (m,c)
-    return $ s_func 
-        n 
+    return $ s_func
+        n
         (map (\(ADecl ty (Id i)) -> (typePrefix ty i ++ "$0",compileType ty)) args)
         (compileType ty)
         s_body
@@ -212,7 +212,7 @@ compileStms stms = do
 
 
 -- in WASM all variables need to be declared at the beginning of the function:
--- we have to collect all the variables declared within a function body, 
+-- we have to collect all the variables declared within a function body,
 -- including inside any blocks, such as ifs/while loops.
 -- to avoid problems of shadowing, we keep a counter of scopes.
 -- thus a variable i inside the main function body will be named i$0
@@ -238,7 +238,7 @@ getVarName i@(Id s) = do
     (m,_) <- get
     case M.lookup i m of
         Just (ty,c) -> return $ typePrefix ty s ++ "$" ++ show c
-        Nothing -> error $ "Error : " ++ s ++ " is not in the map " ++ show m 
+        Nothing -> error $ "Error : " ++ s ++ " is not in the map " ++ show m
 
 
 -- similar to the pushPop of the interpreter
@@ -257,28 +257,29 @@ compileStm (SDecls ty ids) = do
     -- insert variables into the environment
     modify (\(m, c) -> (foldl (\m' i -> M.insert i (ty,c) m') m ids, c))
     return []
-{- 
+{-
 compileStm (SInit ty i e) = do
     -- insert variable into the environment:
-    modify (\(m, c) -> (M.insert i (ty,c) m, c)) 
+    modify (\(m, c) -> (M.insert i (ty,c) m, c))
     -- getVarName
     -- compile expression using `compileExp Nested e`
     -- return the code that evaluates the expression and
     -- assigns the value to the variable
 
-compileStm (SReturn e) = 
-    -- compile expression
-    -- return the code that evaluates the expressions and 
-    -- returns the value
+compileStm (SReturn e) = do
+    s_e <- compileExp Nested e
+    return $
+    s_e ++
+    [s_return]
 -}
 
 compileStm SReturnVoid = return []
 
--- compileStm (SWhile cond s) = do
-    -- compile condition
-    -- use pushPop to compile statement
-    -- return `[ s_block [s_loop ...]]` 
-    -- to fill in the ... proceed as in fibonacci.wat
+compileStm (SWhile cond s) = do
+    s' <- pushPop $ compileStm s
+    s_cond <- compileExp Nested cond
+    return  $
+        [s_block $ [s_loop $ s_cond ++ [s_i32_eqz] ++ [s_br_if 1] ++ s' ++ [s_br 0]]]
 
 -- compileStm (SBlock stms) = do
     -- use pushpop as for SWhile
@@ -286,11 +287,13 @@ compileStm SReturnVoid = return []
     -- you may want to use `concat :: [[a]] -> [a]` (hoogle it) to flatten a list of lists of statements
     -- no need to use `s_block` since C++ blocks are just a way to do variable shadowing, which we already took care of with `collectDecls`
 
--- compileStm s@(SIfElse cond s1 s2) = do
-    -- compile the condition
-    -- use pushpop to compile the branches
-    -- use getReturn to get the type of the if/then/else block
-    -- put the condition on the stack, then use s_if_then_else
+compileStm s@(SIfElse cond s1 s2) = do
+    s_if <- pushPop $ compileStm s1
+    s_else <- pushPop $ compileStm s2
+    s_cond <- pushPop $ compileExp Nested cond
+    t <- getReturn (s)
+    return $ s_cond ++ [s_if_then_else (compileType t) s_if s_else]
+
 
 -- delete the line below after implementing the above
 compileStm _ = return []
@@ -308,13 +311,13 @@ getReturn (SWhile _ s) = pushPop $ getReturn s
 getReturn (SBlock xs) = do
     pushPop $ foldM (\t x -> case t of
         Type_void -> getReturn x
-        _ -> return t) Type_void xs 
+        _ -> return t) Type_void xs
 getReturn (SIfElse _ s1 s2) = do
     t1 <- pushPop $ getReturn s1
     t2 <- pushPop $ getReturn s2
     return $ if t1 == Type_void || t2 == Type_void then Type_void else t1
-    
--- returns the type of the given expression. 
+
+-- returns the type of the given expression.
 -- assumes that the expression is already well-typed
 getType :: MonadState Env m => Exp -> m Type
 getType ETrue = return $ Type_bool
@@ -352,49 +355,59 @@ data Nesting = TopLevel | Nested deriving Eq
 compileExp :: MonadState Env m => Nesting -> Exp -> m [SExp]
 compileExp n ETrue = return $ if n == Nested then [s_i32_const 1] else []
 
--- compileExp n EFalse = 
+compileExp n EFalse = return $ if n == Nested then [s_i32_const 1] else []
 
--- compileExp n (EInt i) = 
+compileExp n (EInt i) = return $ if n == Nested then [s_i32_const i] else []
 
--- compileExp n (EDouble i) = 
+-- compileExp n (EDouble i) =
 
 -- compileExp n (EId i) = do
     -- use `getVarName`
 
--- compileExp n x@(EApp (Id i) args) = do 
-    -- use `mapM` to iterate `compileExp Nested` over `args`
-    -- get the type of `EApp (Id i) args` 
-    -- use `s_call`
-    -- if n==TopLevel and the type is not void use `s_drop`
+compileExp n x@(EApp (Id i) args) = do
+    s_args <- mapM (compileExp Nested) args
+    ty <- getType x
+    return $
+        concat s_args ++
+        [s_call i] ++
+        if n == TopLevel && ty /= Type_void then [s_drop] else []
 
 -- compileExp n (EIncr id@(EId i)) = do
     -- make a case distinction on whether the type of `EId i` is `Type_int` or `Type_double`
-    
+
 -- compileExp n (EPIncr id@(EId i)) = do
 -- compileExp n (EDecr id@(EId i)) = do
 -- compileExp n (EPDecr id@(EId i)) = do
 
 -- for the following use `compileArith`
-{-
-compileExp _ (ETimes e1 e2) =  
-compileExp _ (EDiv e1 e2)   =  
-compileExp _ (EPlus e1 e2)  =  
-compileExp _ (EMinus e1 e2) =  
-compileExp _ (ELt e1 e2)    =  
-compileExp _ (EGt e1 e2)    =  
-compileExp _ (ELtEq e1 e2)  =  
-compileExp _ (EGtEq e1 e2)  =  
-compileExp _ (EEq e1 e2)    =  
-compileExp _ (ENEq e1 e2)   =  
--}
+compileExp n (ETimes e1 e2) = compileArith e1 e2 s_i32_mul s_f64_mul
+compileExp n (EDiv e1 e2)   = compileArith e1 e2 s_i32_div_s s_f64_div
+compileExp n (EPlus e1 e2)  = compileArith e1 e2 s_i32_add s_f64_add
+compileExp n (EMinus e1 e2) = compileArith e1 e2 s_i32_sub s_f64_sub
+compileExp n (ELt e1 e2)    = compileArith e1 e2 s_i32_lt_s s_f64_lt
+compileExp n (EGt e1 e2)    = compileArith e1 e2 s_i32_gt_s s_f64_gt
+compileExp n (ELtEq e1 e2)  = compileArith e1 e2 s_i32_le_s s_f64_le
+compileExp n (EGtEq e1 e2)  = compileArith e1 e2 s_i32_ge_s s_f64_ge
+compileExp n (EEq e1 e2)    = compileArith e1 e2 s_i32_eq s_f64_eq
+compileExp n (ENEq e1 e2)   = compileArith e1 e2 s_i32_ne s_f64_ne
 
 -- for And and Or use if/then/else
--- compileExp _ (EAnd e1 e2) = do
--- compileExp _ (EOr e1 e2) = do
+compileExp n (EAnd e1 e2) = do
+    s_e1 <- compileExp Nested e1
+    s_e2 <- compileExp Nested e2
+    let inner = s_e2 ++ [s_if_then_else (compileType Type_int) [s_i32_const 1] [s_i32_const 0]]
+    let outer = s_e1 ++ [s_if_then_else (compileType Type_int) inner [s_i32_const 0]]
+    return $ outer
+compileExp n (EOr e1 e2) = do
+    s_e1 <- compileExp Nested e1
+    s_e2 <- compileExp Nested e2
+    let inner = s_e2 ++ [s_if_then_else (compileType Type_int) [s_i32_const 1] [s_i32_const 0]]
+    let outer = s_e1 ++ [s_if_then_else (compileType Type_int) [s_i32_const 1] inner]
+    return $ outer
 
 -- compileExp n (EAss (EId i) e) = do
     -- use s_local_tee and s_local_set
-        
+
 compileExp n (ETyped e _) = compileExp n e
 
 -- delete after implementing the above
@@ -404,7 +417,7 @@ compileArith e1 e2 intOp doubleOp = do
     s_e1 <- compileExp Nested e1
     s_e2 <- compileExp Nested e2
     t <- getType e1
-    case t of 
+    case t of
         Type_double -> return $
             s_e1 ++
             s_e2 ++
