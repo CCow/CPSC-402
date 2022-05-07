@@ -265,13 +265,12 @@ compileStm (SInit ty i e) = do
     -- compile expression using `compileExp Nested e`
     -- return the code that evaluates the expression and
     -- assigns the value to the variable
-
+-}
 compileStm (SReturn e) = do
     s_e <- compileExp Nested e
     return $
     s_e ++
     [s_return]
--}
 
 compileStm SReturnVoid = return []
 
